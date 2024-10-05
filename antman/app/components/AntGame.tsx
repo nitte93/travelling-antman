@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, MouseEventHandler } from 'react';
 
   // Define possible movements
   const movements = [
@@ -14,9 +14,11 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 
 const AntGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+//   const [isDrawing, setIsDrawing] = useState(false);
   const antPositionRef = useRef({x: 0, y: 0});
   const animationFrameRef = useRef<number>();
+  const isDrawing = useRef<boolean>(false);
+  const prevCoordinates = useRef<{x: number | null, y: number | null}>({x: null, y: null})
 
   const drawAnt = useCallback((ctx: CanvasRenderingContext2D) => {
     ctx.fillStyle = 'black';
@@ -87,10 +89,6 @@ const AntGame: React.FC = () => {
     };
   }, [updateCanvas]);
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    setIsDrawing(true);
-    // draw(e);
-  };
 
   const stopDrawing = () => {
     setIsDrawing(false);
@@ -100,28 +98,68 @@ const AntGame: React.FC = () => {
     }
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+  const drawLine = (
+    canvasContext : CanvasRenderingContext2D | null | undefined, prevX : number | null, prevY: number | null, currentX:number, currentY: number
+  ) => {
 
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!ctx || !canvas) return;
+    if (!isDrawing.current) return;
 
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 5;
-    ctx.lineCap = 'round';
+    if (!canvasContext) return;
 
-    ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+    if(!prevX || !prevY) return
+
+    canvasContext.strokeStyle = 'white';
+    canvasContext.lineWidth = 5;
+    canvasContext.lineCap = 'round';
+
+    canvasContext.beginPath();
+    canvasContext.lineTo(prevX, prevY);
+    canvasContext.moveTo(currentX, currentY);
+    canvasContext.stroke();
   };
+
+  const onMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+
+    if(isDrawing.current){
+        const prevX = prevCoordinates.current.x
+        const prevY = prevCoordinates.current.y
+
+        const currentX = e.clientX
+        const currentY = e.clientY
+
+        const canvas = canvasRef.current;
+        const canvasContext = canvas?.getContext('2d');
+    
+        drawLine(canvasContext, prevX, prevY, currentX, currentY)
+
+        prevCoordinates.current.x = currentX
+        prevCoordinates.current.y = currentY
+
+    }
+    prevCoordinates.current.x
+
+  }
+  // set isDrawing state to true
+  const onMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    isDrawing.current = true;
+    prevCoordinates.current.x = e.clientX;
+    prevCoordinates.current.y = e.clientY;
+  }
+
+  // reset the srawing state on mouse up
+  const onMouseUp = () => {
+    if(isDrawing.current){
+        isDrawing.current = false
+        prevCoordinates.current.x = null;
+        prevCoordinates.current.y = null;    
+    }
+  }
   return (
     <canvas
       ref={canvasRef}
-      onMouseDown={startDrawing}
-      onMouseUp={stopDrawing}
-      onMouseMove={draw}
+      onMouseDown={onMouseDown}
+      onMouseUp={onMouseUp}
+      onMouseMove={onMouseMove}
       style={{ background: 'green' }}
     />
   );
