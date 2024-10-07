@@ -164,16 +164,30 @@ const drawHighResAnt = useCallback((x: number, y: number, size: number = 7, legA
     ctx.restore();
   }, [isCanvasReady]);
   // Handle direction change upon collision
-const changeDirectionAfterCollision = (currentDirectionIndex) => {
+const changeDirectionAfterCollision = (currentDirectionIndex, x, y) => {
   let newDirectionIndex;
+  const canvas = canvasRef.current;
 
-  // Avoid picking the same direction, choose a different one
-  do {
+  if (!canvas) return movements[currentDirectionIndex];
+
+  // Check if the ant is at the canvas border
+  const isAtBorder = x <= 0 || x >= canvas.width || y <= 0 || y >= canvas.height;
+
+  if (isAtBorder) {
+    // Choose a direction that moves away from the border
+    if (x <= 0) newDirectionIndex = movements.findIndex(m => m.x > 0);
+    else if (x >= canvas.width) newDirectionIndex = movements.findIndex(m => m.x < 0);
+    else if (y <= 0) newDirectionIndex = movements.findIndex(m => m.y > 0);
+    else if (y >= canvas.height) newDirectionIndex = movements.findIndex(m => m.y < 0);
+  } else {
+    // If not at border, choose a random new direction
+    do {
       newDirectionIndex = Math.floor(Math.random() * movements.length);
-  } while (newDirectionIndex === currentDirectionIndex);
+    } while (newDirectionIndex === currentDirectionIndex);
+  }
 
   prevDirectionIndex.current = newDirectionIndex;
-
+  
   return movements[newDirectionIndex];  // Return the new direction
 };
 
@@ -181,9 +195,14 @@ const changeDirectionAfterCollision = (currentDirectionIndex) => {
 const updateAntDirectionOnCollision = (x, y) => {
   let antVelocity = { x: 0, y: 0 };  // Initialize ant's movement velocity
 
-  if (isPointOnAnyPath(drawContext, x, y)) {
+  const canvas = canvasRef.current;
+
+  if (!canvas) return antVelocity;
+  const isAtBorder = x <= 0 || x >= canvas.width || y <= 0 || y >= canvas.height;
+
+  if (isPointOnAnyPath(drawContext, x, y)|| isAtBorder) {
       // If collision detected, reverse direction or change it
-      const newDirection = changeDirectionAfterCollision(prevDirectionIndex.current);
+      const newDirection = changeDirectionAfterCollision(prevDirectionIndex.current, x, y);
 
       // Update ant's velocity based on the new direction
       antVelocity = { x: newDirection.x * 0.7, y: newDirection.y * 0.7 };  // Adjust speed if necessary
@@ -193,9 +212,12 @@ const updateAntDirectionOnCollision = (x, y) => {
       antVelocity = { x: currentDirection.x * 0.7, y: currentDirection.y * 0.7 };
   }
 
+  // // Update the ant's position with the new velocity
+  // antPositionRef.current.x += antVelocity.x;
+  // antPositionRef.current.y += antVelocity.y;
   // Update the ant's position with the new velocity
-  antPositionRef.current.x += antVelocity.x;
-  antPositionRef.current.y += antVelocity.y;
+  antPositionRef.current.x = Math.max(0, Math.min(canvas.width, antPositionRef.current.x + antVelocity.x));
+  antPositionRef.current.y = Math.max(0, Math.min(canvas.height, antPositionRef.current.y + antVelocity.y));
 
   return antVelocity;
 };
